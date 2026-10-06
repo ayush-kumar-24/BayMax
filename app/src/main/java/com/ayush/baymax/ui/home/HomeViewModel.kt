@@ -1,35 +1,86 @@
 package com.ayush.baymax.ui.home
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.ayush.baymax.BuildConfig
 import com.ayush.baymax.agent.CareProtocol
-import com.ayush.baymax.agent.CareRecord
+import com.ayush.baymax.data.ContactApp
+import com.ayush.baymax.data.TrustedContact
+import com.ayush.baymax.data.room.RoomRepository
+import com.ayush.baymax.llm.FirebaseGeminiClient
+import com.ayush.baymax.llm.GeminiRestClient
+import com.ayush.baymax.llm.GroqClient
+import com.ayush.baymax.llm.LlmBrain
+import com.ayush.baymax.llm.LlmRouter
+import com.ayush.baymax.platform.HealthConnectReader
+import com.ayush.baymax.platform.WorkManagerReminderScheduler
+import com.ayush.baymax.ui.settings.HealthConnectStatus
 import com.ayush.baymax.voice.SpeechInput
 import com.ayush.baymax.voice.TtsSpeaker
+import kotlinx.coroutines.launch
 
 /**
- * Android owner of the Home screen: keeps the controller, voice and speech input alive
- * across rotation and shuts them down with the screen.
+ * Android owner of the app: storage, voice, LLM providers, reminders and Health Connect.
+ * Survives rotation; the Activity only supplies things that need an Activity (intents,
+ * permission prompts).
  */
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val speaker = TtsSpeaker(app)
+    val repository = RoomRepository(app, viewModelScope)
+    val healthReader = HealthConnectReader(app)
     val speechInput = SpeechInput(app)
 
-    /** Health log arrives in Phase 4 (Room). Until then records are kept in memory. */
-    val savedRecords = mutableListOf<CareRecord>()
-
-    /** Set by the Activity, which owns the intent to open the dialer. */
+    /** Set by the Activity. */
     var dialer: (String) -> Unit = {}
+    var messenger: (TrustedContact, String, ContactApp) -> Unit = { _, _, _ -> }
+    var requestNotificationPermission: () -> Unit = {}
+
+    val reminders = WorkManagerReminderScheduler(app) { requestNotificationPermission() }
+
+    private val speaker = TtsSpeaker(app) { repository.settings.value.let { it.speechRate to it.pitch } }
+
+    // Primary: Gemini via Firebase AI Logic (needs google-services.json). Same model over REST
+    // if only an AI Studio key is set. Fallback: Groq (SRS 4.3, FR-28).
+    private val clients = listOf(
+        FirebaseGeminiClient(app),
+        GeminiRestClient(BuildConfig.GEMINI_API_KEY),
+        GroqClient(BuildConfig.GROQ_API_KEY),
+    )
+    private val router = LlmRouter(clients)
+
+    val brainStatus: String = clients.filter { it.isConfigured }.let { ok ->
+        when {
+            ok.isEmpty() -> "No language model configured. Add a key in secrets.properties or google-services.json. Care and safety work offline."
+            else -> ok.joinToString(", then ") { c -> if (c is FirebaseGeminiClient) "Gemini (Firebase)" else c.name } + ". Offline features always work."
+        }
+    }
+
+    var healthStatus by mutableStateOf(HealthConnectStatus.Unavailable)
+        private set
 
     val controller = HomeController(
         scope = viewModelScope,
         protocol = CareProtocol(),
         speaker = speaker,
-        onSaveRecord = { savedRecords += it },
+        brain = LlmBrain(router, repository),
+        repository = repository,
+        healthReadings = { healthReader.read() },
+        reminders = reminders,
         onDial = { dialer(it) },
+        onSendMessage = { c, t, a -> messenger(c, t, a) },
     )
+
+    init {
+        refreshHealthStatus()
+    }
+
+    fun refreshHealthStatus() {
+        viewModelScope.launch { healthStatus = healthReader.status() }
+    }
 
     fun startListening(onError: (String) -> Unit) {
         if (speechInput.isListening) {

@@ -10,3 +10,4 @@
 .cxx/
 *.keystore
 secrets.properties
+app/google-services.json

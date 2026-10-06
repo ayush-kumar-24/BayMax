@@ -140,10 +140,30 @@ class CareProtocolTest {
         p.say("I feel really low today")
         assertEquals(AgentState.MoodCheck, p.state)
         p.say("2")
+        // UC-3: with a trusted contact, Baymax offers to draft a message first.
+        assertEquals(AgentState.MoodCheck, p.state)
+        assertTrue(spoken.any { it.contains("draft a message to Priya") })
+        val r = p.say("No, please do not")
+        assertFalse(r.steps.any { it is Step.Act })
         assertEquals(AgentState.Satisfaction, p.state)
-        assertTrue(spoken.any { it.contains("Priya") })
         p.say("I am satisfied with my care")
         assertEquals(2, records.single().mood)
+    }
+
+    @Test fun `open conversation goes to the LLM, local intents do not`() {
+        val p = CareProtocol()
+        p.run(p.onCaseTap())
+        assertTrue(p.say("what should I eat for dinner").steps.single() is Step.Think)
+        assertTrue(p.say("remind me to drink water every 2 hours").steps.single() is Step.Act)
+        assertTrue(p.say("my name is Ayush").steps.first() is Step.Act)
+        assertEquals(AgentState.Listening, p.state)
+    }
+
+    @Test fun `message a friend in an emergency drafts an urgent message`() {
+        val p = CareProtocol(CareConfig(trustedContactName = "Priya"))
+        p.say("I can't breathe")
+        val act = p.run(p.onMessageFriend()).steps.single() as Step.Act
+        assertEquals(ToolAction.DraftMessage("Priya", null, urgent = true), act.action)
     }
 
     @Test fun `T-1 persona lines are literal, without contractions, under 40 words`() {
@@ -152,6 +172,8 @@ class CareProtocolTest {
         CareProtocol().apply { say("ow"); run(onPainSelected(9)); run(onScanFinished(HealthReadings(80, 100, 300))); say("Stomach"); say("A few days ago"); say("Yes"); say("not yet"); say("not yet"); say("not yet") }
         CareProtocol().apply { say("hi"); say("what is the weather"); say("bye"); say("I feel sad"); say("x"); say("1") }
         CareProtocol().apply { say("I want to end my life"); say("help"); run(onMessageFriend()); run(onImOkay()) }
+        CareProtocol(CareConfig(trustedContactName = "Priya")).apply { say("hello"); say("I am lonely"); say("4"); say("yes"); say("not yet") }
+        CareProtocol().apply { say("hi"); say("my name is Ayush") }
         CareProtocol().apply { say("ow"); say("a lot"); run(onPainSelected(3)); say("hello?") }
 
         val contraction = Regex("""\b[A-Za-z]+'(t|s|re|ll|ve|d|m)\b""")

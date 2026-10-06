@@ -35,6 +35,10 @@ sealed interface Step {
     data object RunScan : Step
     data class SaveRecord(val record: CareRecord) : Step
     data class OpenDialer(val number: String) : Step
+    /** Ask the LLM (Phase 5). The runner speaks its reply and runs any tools it asks for. */
+    data class Think(val userText: String) : Step
+    /** Run a tool locally and speak its confirmation. */
+    data class Act(val action: ToolAction) : Step
     /** Deflate back into the case. */
     data object Deactivate : Step
 }
@@ -72,6 +76,7 @@ class CareProtocol(
         var advice = ""
         var redFlag = false
         var saved = false
+        var offeredDraft = false
     }
 
     // ---------------------------------------------------------------------------------
@@ -151,11 +156,9 @@ class CareProtocol(
         )
     }
 
-    /** Contact-a-friend drafting arrives in Phase 4 (FR-26); until then Baymax says so plainly. */
-    fun onMessageFriend(): Reaction {
-        val who = config.trustedContactName ?: "your friend"
-        return react(Step.Say("I cannot send messages yet. Please call $who directly. I will stay with you."))
-    }
+    /** FR-26: draft a message to a trusted contact; the user confirms before it is sent. */
+    fun onMessageFriend(): Reaction =
+        react(Step.Act(ToolAction.DraftMessage(config.trustedContactName, null, urgent = state == AgentState.Emergency)), preempt = false)
 
     /** "I am okay now" from the emergency panel. */
     fun onImOkay(): Reaction = onUserText("I am okay now")
@@ -258,12 +261,17 @@ class CareProtocol(
         }
         LEAVE.containsMatchIn(t) ->
             react(Step.Say("I cannot deactivate until you say that you are satisfied with your care.", chips = listOf(QuickChip(SafetyRules.EXIT_TEXT, QuickChip.Style.Primary))))
-        else ->
-            // Phase 5: hand open conversation to the LLM here.
-            react(Step.Say("I am listening. Soon I will be able to think about this more carefully. If something hurts, tell me.", chips = DEFAULT_CHIPS))
+        ReminderParser.parse(t) != null -> react(Step.Act(ReminderParser.parse(t)!!))
+        NAME.find(t) != null -> {
+            val name = NAME.find(t)!!.groupValues[1].replaceFirstChar { it.uppercase() }
+            react(Step.Act(ToolAction.Remember("The user's name is $name.")), Step.Say("Hello, $name. I will remember your name."))
+        }
+        // Everything else is open conversation for the LLM (FR-4, FR-22, FR-24 to FR-26).
+        else -> react(Step.Think(t))
     }
 
     private fun mood(t: String): Reaction {
+        if (session?.offeredDraft == true) return draftAnswer(t)
         val n = t.filter { it.isDigit() }.toIntOrNull()?.takeIf { it in 1..5 }
             ?: return react(Step.Say("Please choose a number from one to five.", tilt = true, chips = (1..5).map { QuickChip("$it") }))
         val s = session ?: Session(now()).also { session = it }
@@ -275,13 +283,30 @@ class CareProtocol(
             else "Thank you for telling me. I am glad you shared how you feel.",
         )
         val friend = config.trustedContactName
-        steps += Step.Say(
-            if (friend != null) "Talking to someone you trust can help. You could call $friend." else "Talking to someone you trust can help. You could call a friend.",
-        )
         s.advice = "Suggested talking to a trusted friend."
         steps += saveIfNeeded(s, AgentState.MoodCheck)
+        if (friend != null) {
+            // UC-3: offer to draft a message; the user confirms before anything is sent.
+            s.offeredDraft = true
+            steps += Step.Say(
+                "Talking to someone you trust can help. Would you like me to draft a message to $friend?",
+                tilt = true,
+                chips = listOf(QuickChip("Yes, please", QuickChip.Style.Primary), QuickChip("No, thank you")),
+            )
+            return Reaction(steps)
+        }
+        steps += Step.Say("Talking to someone you trust can help. You could call a friend.")
         steps += satisfactionSteps()
         return Reaction(steps)
+    }
+
+    private fun draftAnswer(t: String): Reaction {
+        session?.offeredDraft = false
+        val yes = YES.containsMatchIn(t) && !Regex("""^(no|nope|not)\b""").containsMatchIn(t)
+        val steps = mutableListOf<Step>()
+        if (yes) steps += Step.Act(ToolAction.DraftMessage(config.trustedContactName, null))
+        else steps += Step.Say("That is okay. I am here with you.")
+        return Reaction(steps + satisfactionSteps())
     }
 
     private fun emergency(flag: RedFlag): Reaction {
@@ -420,6 +445,8 @@ class CareProtocol(
         val GREETING = Regex("""^(hi|hello|hey|hii+|namaste|good (morning|afternoon|evening))\b""")
         val LOW_MOOD = Regex("""\b(low|sad|lonely|depressed|down|anxious|stressed|upset|unhappy|crying)\b""")
         val LEAVE = Regex("""\b(bye|goodbye|go away|deactivate|shut down|turn off|leave me)\b""")
+        val YES = Regex("""\b(yes|yeah|yep|sure|please|okay|ok)\b""")
+        val NAME = Regex("""\bmy name is ([a-z][a-z'-]{1,30})""")
         val OKAY = Regex("""\b(okay|ok|fine|better|safe|alright)\b""")
 
         val NUMBER_WORDS = listOf("one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")

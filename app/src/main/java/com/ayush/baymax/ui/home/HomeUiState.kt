@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.ayush.baymax.agent.AgentState
 import com.ayush.baymax.agent.ChestContent
 import com.ayush.baymax.agent.QuickChip
+import com.ayush.baymax.data.TrustedContact
 
 @Immutable
 data class HomeUiState(
@@ -23,7 +24,14 @@ data class HomeUiState(
     val tilt: Boolean = false,
     /** Bumped to request one blink (FR-17: blink once per reply). */
     val blinkTick: Int = 0,
+    /** Waiting for the LLM. */
+    val thinking: Boolean = false,
+    /** A drafted message waiting for the user's confirmation (FR-26). */
+    val draft: MessageDraft? = null,
 ) {
     val awake: Boolean get() = agentState.isAwake
     val emergency: Boolean get() = agentState == AgentState.Emergency
 }
+
+@Immutable
+data class MessageDraft(val contact: TrustedContact, val text: String)

@@ -14,7 +14,11 @@ import java.util.concurrent.atomic.AtomicInteger
  * On-device text-to-speech in Baymax's voice: slow and low (FR-3). Prefers an English voice
  * that works offline. If no engine is available, speech is silently skipped and captions still show.
  */
-class TtsSpeaker(context: Context) : Speaker {
+class TtsSpeaker(
+    context: Context,
+    /** Speech rate and pitch from Settings, read on every line. */
+    private val voice: () -> Pair<Float, Float> = { RATE to PITCH },
+) : Speaker {
 
     private val ready = CompletableDeferred<Boolean>()
     private val pending = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
@@ -63,8 +67,9 @@ class TtsSpeaker(context: Context) : Speaker {
         val ok = withTimeoutOrNull(3000) { ready.await() } ?: false
         if (!ok || text.isBlank()) return
         configure()
-        tts.setSpeechRate(if (lowBattery) RATE * 0.75f else RATE)
-        tts.setPitch(if (lowBattery) PITCH * 0.85f else PITCH)
+        val (rate, pitch) = voice()
+        tts.setSpeechRate(if (lowBattery) rate * 0.75f else rate)
+        tts.setPitch(if (lowBattery) pitch * 0.85f else pitch)
         val id = "bm-${ids.incrementAndGet()}"
         val done = CompletableDeferred<Unit>()
         pending[id] = done
@@ -87,7 +92,7 @@ class TtsSpeaker(context: Context) : Speaker {
         tts.shutdown()
     }
 
-    private companion object {
+    companion object {
         const val RATE = 0.85f
         const val PITCH = 0.8f
     }

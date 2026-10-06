@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome Baymax face for the status bar. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M12,5C18,5 22,8 22,12C22,16 18,19 12,19C6,19 2,16 2,12C2,8 6,5 12,5ZM7.5,10.5a1.5,1.5 0,1 0,0.01 0ZM16.5,10.5a1.5,1.5 0,1 0,0.01 0Z" />
+</vector>

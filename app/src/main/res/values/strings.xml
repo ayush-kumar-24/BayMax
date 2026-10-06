@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Baymax</string>
+    <string name="widget_hint">Tap if something hurts</string>
 </resources>

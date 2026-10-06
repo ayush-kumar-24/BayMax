@@ -1,48 +1,61 @@
 package com.ayush.baymax.ui.home
 
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.ayush.baymax.agent.AgentState
+import com.ayush.baymax.agent.Brain
 import com.ayush.baymax.agent.CareProtocol
-import com.ayush.baymax.agent.CareRecord
 import com.ayush.baymax.agent.ChestContent
 import com.ayush.baymax.agent.HealthReadings
+import com.ayush.baymax.agent.OfflineBrain
 import com.ayush.baymax.agent.QuickChip
 import com.ayush.baymax.agent.Reaction
+import com.ayush.baymax.agent.ReminderParser
+import com.ayush.baymax.agent.SafetyRules
 import com.ayush.baymax.agent.Step
+import com.ayush.baymax.agent.ToolAction
+import com.ayush.baymax.data.AppSettings
+import com.ayush.baymax.data.BaymaxRepository
+import com.ayush.baymax.data.ChatMessage
+import com.ayush.baymax.data.ContactApp
+import com.ayush.baymax.data.InMemoryRepository
+import com.ayush.baymax.data.Reminder
+import com.ayush.baymax.data.ReminderScheduler
+import com.ayush.baymax.data.TrustedContact
 import com.ayush.baymax.voice.SilentSpeaker
 import com.ayush.baymax.voice.Speaker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** One line of the conversation (FR-5). Shown in the conversation sheet from Phase 4. */
-data class ChatLine(val fromUser: Boolean, val text: String)
-
 /**
  * Runs the [CareProtocol] against the Home screen: turns each [Step] into UI state,
- * speech and timing. Pure Kotlin so it runs in unit tests and the desktop preview harness;
- * Android wiring lives in [HomeViewModel].
+ * speech, timing, LLM calls and tools. Pure Kotlin so it runs in unit tests and the desktop
+ * preview harness; Android wiring lives in [HomeViewModel].
  *
  * Interruptions: when the user says something new, the batch Baymax is in the middle of is
- * fast-forwarded (speech stops, waits are skipped, but every state change is still applied),
- * then the new reply runs. So the screen always ends in the state the protocol is in.
+ * fast-forwarded (speech stops, waits and LLM calls are abandoned, but every state change is
+ * still applied), then the new reply runs. So the screen always ends in the protocol's state.
  */
 class HomeController(
     private val scope: CoroutineScope,
     val protocol: CareProtocol = CareProtocol(),
     private val speaker: Speaker = SilentSpeaker,
+    private val brain: Brain = OfflineBrain,
+    val repository: BaymaxRepository = InMemoryRepository(),
     private val healthReadings: suspend () -> HealthReadings? = { null },
-    private val onSaveRecord: (CareRecord) -> Unit = {},
+    private val reminders: ReminderScheduler = ReminderScheduler.None,
     private val onDial: (String) -> Unit = {},
+    private val onSendMessage: (TrustedContact, String, ContactApp) -> Unit = { _, _, _ -> },
+    private val now: () -> Long = System::currentTimeMillis,
 ) {
     var state by mutableStateOf(HomeUiState())
         private set
 
-    val transcript = mutableStateListOf<ChatLine>()
+    private var contacts: List<TrustedContact> = emptyList()
 
     private class Batch(val steps: List<Step>) {
         @Volatile var skip = false
@@ -50,6 +63,22 @@ class HomeController(
     }
 
     private var current: Batch? = null
+
+    init {
+        scope.launch { repository.pruneChatOlderThan(now() - CHAT_RETENTION_MS) }
+        scope.launch { repository.settings.collect(::applySettings) }
+        scope.launch {
+            repository.contacts.collect { list ->
+                contacts = list
+                protocol.config = protocol.config.copy(trustedContactName = list.firstOrNull()?.name)
+            }
+        }
+    }
+
+    private fun applySettings(s: AppSettings) {
+        protocol.config = protocol.config.copy(distressWords = s.distressWords, emergencyNumber = s.emergencyNumber)
+        if (state.muted == s.voiceOn) update { copy(muted = !s.voiceOn) }
+    }
 
     // ---------------------------------------------------------------------------------
     // User actions
@@ -84,6 +113,16 @@ class HomeController(
     /** Emergency call: opens the dialer with the configured number (FR-15). */
     fun call() = onDial(protocol.config.emergencyNumber)
 
+    /** The user confirmed the drafted message (FR-26). */
+    fun sendDraft(text: String, app: ContactApp) {
+        val draft = state.draft ?: return
+        update { copy(draft = null) }
+        onSendMessage(draft.contact, text, app)
+        log(ChatMessage.Role.Tool, "Message to ${draft.contact.name} opened in ${app.label}")
+    }
+
+    fun cancelDraft() = update { copy(draft = null) }
+
     fun headTap() {
         update { copy(tilt = true, blinkTick = blinkTick + 1) }
         scope.launch {
@@ -93,8 +132,10 @@ class HomeController(
     }
 
     fun toggleMute() {
-        update { copy(muted = !muted) }
-        if (state.muted) speaker.stop()
+        val muted = !state.muted
+        update { copy(muted = muted) }
+        if (muted) speaker.stop()
+        scope.launch { repository.updateSettings { it.copy(voiceOn = !muted) } }
     }
 
     fun setListening(listening: Boolean) = update { copy(micListening = listening) }
@@ -110,13 +151,23 @@ class HomeController(
         if (online != state.online) update { copy(online = online) }
     }
 
+    /** Home-screen widget and notification taps open straight into a care session (FR-32). */
+    fun startCareFromShortcut() {
+        if (state.agentState == AgentState.Idle) send("ow")
+    }
+
     // ---------------------------------------------------------------------------------
     // Step runner
     // ---------------------------------------------------------------------------------
 
     private fun userSaid(text: String) {
         update { copy(userLine = text) }
-        transcript += ChatLine(fromUser = true, text = text)
+        log(ChatMessage.Role.User, text)
+    }
+
+    private fun log(role: ChatMessage.Role, text: String) {
+        val msg = ChatMessage(role = role, text = text, timestamp = now())
+        scope.launch { runCatching { repository.addChat(msg) } }
     }
 
     private fun submit(reaction: Reaction) {
@@ -152,8 +203,10 @@ class HomeController(
                     // The scan ends the protocol's Scanning state; run its follow-up in this batch.
                     queue.addAll(0, protocol.onScanFinished(readings).steps)
                 }
-                is Step.SaveRecord -> runCatching { onSaveRecord(step.record) }
+                is Step.SaveRecord -> runCatching { repository.saveCareRecord(step.record) }
                 is Step.OpenDialer -> onDial(step.number)
+                is Step.Think -> think(batch, step)
+                is Step.Act -> act(step.action, silentSuccess = false)?.let { say(batch, Step.Say(it, chips = DEFAULT_CHIPS)) }
                 Step.Deactivate -> update {
                     copy(
                         agentState = AgentState.Idle,
@@ -163,8 +216,71 @@ class HomeController(
                         chips = emptyList(),
                         chest = ChestContent.None,
                         tilt = false,
+                        thinking = false,
                     )
                 }
+            }
+        }
+    }
+
+    /** Open conversation through the LLM, abandoned if the user speaks again (FR-28, FR-29). */
+    private suspend fun think(batch: Batch, step: Step.Think) {
+        update { copy(thinking = true, tilt = true, blinkTick = blinkTick + 1) }
+        val pending = scope.async { runCatching { brain.think(step.userText, state.agentState, state.lowBattery) }.getOrNull() }
+        while (pending.isActive && !batch.skip) delay(TICK_MS)
+        update { copy(thinking = false, tilt = false) }
+        if (batch.skip) {
+            pending.cancel()
+            return
+        }
+        val thought = pending.await()
+        if (thought == null || thought.unavailable) {
+            say(batch, Step.Say(OFFLINE_LINE, chips = DEFAULT_CHIPS))
+            return
+        }
+        val line = thought.line
+        if (line != null) say(batch, Step.Say(line, chips = if (thought.actions.isEmpty()) DEFAULT_CHIPS else emptyList()))
+        thought.actions.forEach { action ->
+            act(action, silentSuccess = line != null)?.let { say(batch, Step.Say(it, chips = DEFAULT_CHIPS)) }
+        }
+        if (line == null && thought.actions.isEmpty()) {
+            say(batch, Step.Say("I am listening. Please tell me more.", chips = DEFAULT_CHIPS))
+        }
+    }
+
+    /**
+     * Runs a tool and returns what Baymax should say about it, or null to stay quiet.
+     * [silentSuccess] is set when the LLM already said something about it.
+     */
+    private suspend fun act(action: ToolAction, silentSuccess: Boolean): String? = when (action) {
+        is ToolAction.CreateReminder -> runCatching {
+            val reminder = Reminder(
+                text = action.text,
+                firstTime = now() + action.inMinutes * 60_000,
+                repeatIntervalMinutes = action.repeatMinutes,
+            )
+            val id = repository.addReminder(reminder)
+            reminders.schedule(reminder.copy(id = id))
+            log(ChatMessage.Role.Tool, "create_reminder: ${action.text}")
+            if (silentSuccess) null else ReminderParser.confirmation(action)
+        }.getOrElse { "I could not set that reminder. Please try again." }
+
+        is ToolAction.Remember -> {
+            runCatching { repository.remember(action.fact, now()) }
+            null
+        }
+
+        ToolAction.ReadHealth -> describeHealth(runCatching { healthReadings() }.getOrNull())
+
+        is ToolAction.DraftMessage -> {
+            val contact = action.contactName?.let { name -> contacts.firstOrNull { it.name.contains(name, ignoreCase = true) } }
+                ?: contacts.firstOrNull()
+            if (contact == null) {
+                "Please add a trusted contact in Settings first. Then I can draft a message for you."
+            } else {
+                val text = action.message?.takeIf { it.isNotBlank() } ?: defaultMessage(contact, action.urgent)
+                update { copy(draft = MessageDraft(contact, text)) }
+                if (silentSuccess) null else "I have drafted a message to ${contact.name}. Please check it before sending."
             }
         }
     }
@@ -173,7 +289,7 @@ class HomeController(
         // Never slur safety-critical lines.
         val styled = state.lowBattery && state.agentState != AgentState.Emergency
         val line = if (styled) lowBatteryStyle(step.line) else step.line
-        transcript += ChatLine(fromUser = false, text = line)
+        log(ChatMessage.Role.Agent, line)
         update {
             copy(
                 caption = line,
@@ -212,18 +328,38 @@ class HomeController(
         state = state.f()
     }
 
-    private companion object {
+    companion object {
         const val WORD_MS = 160L
         const val TICK_MS = 30L
         const val SCAN_MS = 2000L
         const val SCAN_TICKS = 20
+        const val CHAT_RETENTION_MS = 30L * 24 * 60 * 60 * 1000
+
+        /** FR-29, in persona. */
+        const val OFFLINE_LINE =
+            "I cannot think clearly right now. My pain scale, health log, reminders and emergency button still work."
+
+        val DEFAULT_CHIPS = listOf(QuickChip("ow"), QuickChip("I feel low"), QuickChip(SafetyRules.EXIT_TEXT, QuickChip.Style.Primary))
+
+        fun defaultMessage(contact: TrustedContact, urgent: Boolean) =
+            if (urgent) "Hi ${contact.name}, I am not feeling well and may need help. Can you call me or come over?"
+            else "Hi ${contact.name}, I am feeling a bit low today. Could we talk for a few minutes?"
+
+        fun describeHealth(r: HealthReadings?): String {
+            if (r == null || (r.stepsToday == null && r.heartRateBpm == null && r.sleepMinutes == null)) {
+                return "I cannot read your health data yet. Please connect Health Connect in Settings."
+            }
+            val parts = buildList {
+                r.stepsToday?.let { add("Today you have walked ${"%,d".format(it)} steps.") }
+                r.sleepMinutes?.let { add("You slept ${it / 60} hours and ${it % 60} minutes.") }
+                r.heartRateBpm?.let { add("Your latest heart rate is $it beats per minute.") }
+            }
+            return parts.joinToString(" ")
+        }
     }
 }
 
-/**
- * FR-19: cosmetic "low battery" voice from the film: stretched vowels, trailing pauses,
- * lower case. Only the caption changes; the meaning is the same.
- */
+/** FR-19: cosmetic "low battery" voice from the film. Only the caption changes. */
 internal fun lowBatteryStyle(line: String): String {
     val lower = line.lowercase()
     val vowel = lower.indexOfFirst { it in "aeiou" }

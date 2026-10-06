@@ -11,27 +11,39 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.BatteryManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
-import com.ayush.baymax.ui.home.HomeActions
-import com.ayush.baymax.ui.home.HomeScreen
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import com.ayush.baymax.platform.Messaging
+import com.ayush.baymax.ui.BaymaxApp
+import com.ayush.baymax.ui.PlatformHooks
 import com.ayush.baymax.ui.home.HomeViewModel
-import com.ayush.baymax.ui.theme.BaymaxTheme
 import com.ayush.baymax.ui.theme.Nunito
 
 class MainActivity : ComponentActivity() {
 
     private val vm: HomeViewModel by viewModels()
 
-    /** Microphone permission is requested only when the mic is first tapped (NFR-10). */
+    /** Every permission is asked only when first needed (NFR-10); denying never breaks the app (NFR-5). */
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) listen() else toast("I need microphone permission to hear you. You can type instead.")
+    }
+
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) toast("Reminders are saved, but notifications are off. You can turn them on in system settings.")
+    }
+
+    private val healthPermissions = registerForActivityResult(PermissionController.createRequestPermissionResultContract()) {
+        vm.refreshHealthStatus()
     }
 
     private val batteryReceiver = object : BroadcastReceiver() {
@@ -57,26 +69,37 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         vm.dialer = ::dial
+        vm.messenger = { contact, text, app ->
+            if (!Messaging.open(this, contact, text, app)) toast("I could not open ${app.label}. Please message ${contact.name} directly.")
+        }
+        vm.requestNotificationPermission = ::askNotificationPermission
 
-        val c = vm.controller
-        val actions = HomeActions(
-            onSend = c::send,
-            onChip = c::chip,
-            onMic = ::onMicTapped,
-            onCaseTap = c::caseTap,
-            onHeadTap = c::headTap,
-            onPainSelected = c::selectPain,
-            onCall = c::call,
-            onMessageFriend = c::messageFriend,
-            onImOkay = c::imOkay,
-            onToggleMute = c::toggleMute,
-            onOpenLog = { toast("The health log arrives in the next update.") },
-            onOpenSettings = { toast("Settings arrive in the next update.") },
-        )
         setContent {
-            BaymaxTheme(fontFamily = Nunito) {
-                HomeScreen(vm.controller.state, actions)
-            }
+            BaymaxApp(
+                controller = vm.controller,
+                platform = PlatformHooks(
+                    onMic = ::onMicTapped,
+                    healthStatus = vm.healthStatus,
+                    connectHealth = ::connectHealth,
+                    brainStatus = vm.brainStatus,
+                    reminders = vm.reminders,
+                    backHandler = { enabled, onBack -> BackHandler(enabled, onBack) },
+                ),
+                fontFamily = Nunito,
+            )
+        }
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == ACTION_START_CARE) {
+            vm.controller.startCareFromShortcut()
+            intent.action = null
         }
     }
 
@@ -85,6 +108,7 @@ class MainActivity : ComponentActivity() {
         ContextCompat.registerReceiver(this, batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         getSystemService(ConnectivityManager::class.java)?.registerDefaultNetworkCallback(networkCallback)
         updateOnline()
+        vm.refreshHealthStatus()
     }
 
     override fun onStop() {
@@ -106,6 +130,7 @@ class MainActivity : ComponentActivity() {
 
     private fun onMicTapped() {
         when {
+            vm.speechInput.isListening -> listen()
             !vm.speechInput.isAvailable -> toast("Speech input is not available on this phone. You can type instead.")
             ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED -> listen()
             else -> micPermission.launch(Manifest.permission.RECORD_AUDIO)
@@ -114,6 +139,22 @@ class MainActivity : ComponentActivity() {
 
     private fun listen() = vm.startListening(onError = ::toast)
 
+    private fun askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            runOnUiThread { notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+        }
+    }
+
+    private fun connectHealth() {
+        when (vm.healthReader.sdkStatus()) {
+            HealthConnectClient.SDK_AVAILABLE -> healthPermissions.launch(vm.healthReader.permissions)
+            HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> runCatching {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.healthdata")))
+            }.onFailure { toast("Please update Health Connect from the Play Store.") }
+            else -> toast("Health Connect is not available on this phone.")
+        }
+    }
+
     /** ACTION_DIAL needs no permission and works offline (FR-15, FR-16). */
     private fun dial(number: String) {
         runCatching { startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) }
@@ -121,4 +162,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+
+    companion object {
+        const val ACTION_START_CARE = "com.ayush.baymax.START_CARE"
+    }
 }
