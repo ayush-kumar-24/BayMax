@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Baymax Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f1ed; --page:#e7e4de; --surface:#ffffff; --surface-2:#f7f6f3; --ink:#1b1d22; --muted:#7a7f89; --line:#e4e2dd;
+  --red:#d7262e; --red-deep:#a8161d; --green:#2fa86b; --amber:#e3a21a;
+  --vinyl-1:#ffffff; --vinyl-2:#f1f2f5; --vinyl-3:#dfe2e7; --vinyl-4:#cdd2d9;
+  --glass:#0e1822; --cyan:#5fd8ff; --cyan-dim:rgba(95,216,255,.25);
+  --stage-a:#fbfaf8; --stage-b:#e9e6e0; --face:#111317;
+  --shadow:0 10px 30px rgba(20,24,30,.10);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1015; --page:#07090c; --surface:#161a21; --surface-2:#1c212a; --ink:#eef0f3; --muted:#8b93a1; --line:#262b34;
+    --stage-a:#1f2733; --stage-b:#0d1015; --shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1015; --page:#07090c; --surface:#161a21; --surface-2:#1c212a; --ink:#eef0f3; --muted:#8b93a1; --line:#262b34;
+  --stage-a:#1f2733; --stage-b:#0d1015; --shadow:0 10px 30px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--page);font-family:Nunito,system-ui,sans-serif;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:32px;padding:24px;min-height:100vh}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+
+/* ---------- phone frame ---------- */
+.phone{position:relative;width:390px;height:844px;border-radius:52px;background:var(--bg);overflow:hidden;
+  box-shadow:0 0 0 11px #111,0 0 0 12px #333,0 40px 80px rgba(0,0,0,.35);display:flex;flex-direction:column;flex:none;transition:background .6s}
+.sbar{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font-weight:700;font-size:15px;flex:none}
+.sbar .bat{display:flex;align-items:center;gap:6px;font-size:13px}
+.bat-ic{width:24px;height:12px;border:1.6px solid currentColor;border-radius:3px;position:relative;padding:1px}
+.bat-ic::after{content:"";position:absolute;right:-4px;top:3px;width:2px;height:4px;background:currentColor;border-radius:0 1px 1px 0}
+.bat-ic i{display:block;height:100%;width:80%;background:currentColor;border-radius:1px;transition:width .4s,background .4s}
+.lowbatt .bat-ic i{width:12%;background:var(--red)}
+
+.topbar{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 18px;flex:none;position:relative;z-index:5}
+.pill{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);padding:8px 14px;border-radius:999px;font-weight:700;font-size:13px;box-shadow:var(--shadow)}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:#9aa0a8;transition:background .3s}
+.pill.on .dot{background:var(--green);box-shadow:0 0 0 4px rgba(47,168,107,.18)}
+.pill.em .dot{background:var(--red);box-shadow:0 0 0 4px rgba(215,38,46,.2);animation:pulse 1s infinite}
+.pill.warn .dot{background:var(--amber)}
+.pill .net{color:var(--muted);font-weight:600}
+.icons{display:flex;gap:4px}
+.ib{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--ink)}
+.ib:hover{background:var(--surface-2)}
+.ib svg{width:22px;height:22px}
+
+/* ---------- stage ---------- */
+.stage{position:relative;flex:1;min-height:0;overflow:hidden;
+  background:radial-gradient(120% 80% at 50% 35%,var(--stage-a) 0%,var(--stage-b) 100%);transition:background .6s}
+.phone.emergency .stage{background:radial-gradient(120% 80% at 50% 35%,#ffe9e9 0%,#f4c6c6 100%)}
+:root[data-theme="dark"] .phone.emergency .stage{background:radial-gradient(120% 80% at 50% 35%,#3a1418 0%,#14080a 100%)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .phone.emergency .stage{background:radial-gradient(120% 80% at 50% 35%,#3a1418 0%,#14080a 100%)}}
+
+.vinyl{background:radial-gradient(ellipse at 50% 28%,var(--vinyl-1) 0%,var(--vinyl-1) 38%,var(--vinyl-2) 62%,var(--vinyl-3) 85%,var(--vinyl-4) 100%)}
+
+.bm{position:absolute;inset:0;pointer-events:none}
+.bm > *{pointer-events:auto}
+.armwrap,.bodywrap,.headwrap{position:absolute;opacity:0;transform-origin:50% 100%}
+.bodywrap{left:20px;right:20px;top:128px;height:560px}
+.body{width:100%;height:100%;border-radius:48% 48% 40% 40% / 30% 30% 70% 70%;box-shadow:inset -18px -30px 60px rgba(120,130,150,.18),inset 18px 10px 40px rgba(255,255,255,.9);
+  animation:breathe 4.2s ease-in-out infinite alternate;transform-origin:50% 100%}
+.port{position:absolute;left:78px;top:92px;width:26px;height:26px;border-radius:50%;
+  background:radial-gradient(circle at 40% 35%,#f7f8fa,#dfe2e7);box-shadow:inset 0 1px 3px rgba(0,0,0,.18),0 1px 0 #fff}
+.armwrap{top:250px;width:150px;height:420px}
+.armwrap.l{left:-78px;transform:rotate(9deg)} .armwrap.r{right:-78px;transform:rotate(-9deg)}
+.arm{width:100%;height:100%;border-radius:75px;box-shadow:inset -10px -20px 40px rgba(120,130,150,.22)}
+.headwrap{left:50%;width:204px;margin-left:-102px;top:26px;height:136px;z-index:3}
+.head{width:100%;height:100%;border-radius:50% 50% 47% 47% / 54% 54% 46% 46%;cursor:pointer;
+  box-shadow:inset -10px -18px 30px rgba(120,130,150,.20),inset 10px 8px 20px rgba(255,255,255,.95),0 14px 24px rgba(40,50,70,.10);
+  transition:transform .7s cubic-bezier(.34,1.56,.64,1);animation:bob 5s ease-in-out infinite}
+.head svg{width:100%;height:100%;display:block}
+.head.tilt{transform:rotate(-9deg)}
+#eyes{transform-box:fill-box;transform-origin:center;transform:scaleY(.06);transition:transform .45s cubic-bezier(.34,1.56,.64,1)}
+.awake #eyes{transform:scaleY(1)}
+#eyes.blink{animation:blink .17s ease-in-out}
+#look{transition:transform .5s ease}
+.lowbatt.awake #eyes{transform:scaleY(.42) translateY(3px)}
+.lowbatt .head{animation:sway 2.6s ease-in-out infinite}
+.lowbatt .body{animation:breathe 2.6s ease-in-out infinite alternate}
+
+.awake .bodywrap{opacity:1;animation:inflateBody 1.25s cubic-bezier(.3,1.25,.5,1) both}
+.awake .armwrap{opacity:1;animation:inflateArm 1.25s .1s cubic-bezier(.3,1.25,.5,1) both}
+.awake .armwrap.l{animation-name:inflateArmL} .awake .armwrap.r{animation-name:inflateArmR}
+.awake .headwrap{opacity:1;animation:inflateHead 1s .45s cubic-bezier(.3,1.45,.5,1) both}
+.deflating .bodywrap{opacity:1;animation:deflateBody 1.1s .25s cubic-bezier(.6,0,.8,.4) both}
+.deflating .armwrap{opacity:1;animation:fadeDown 1s .2s ease-in both}
+.deflating .armwrap.l{--r:9deg} .deflating .armwrap.r{--r:-9deg}
+.deflating .headwrap{opacity:1;animation:deflateHead 1s cubic-bezier(.6,0,.8,.4) both}
+
+/* case */
+.case{position:absolute;left:50%;bottom:34px;width:216px;margin-left:-108px;height:128px;transition:transform .8s cubic-bezier(.5,0,.3,1),opacity .6s;cursor:pointer}
+.case .box{position:absolute;inset:0;border-radius:30px 30px 20px 20px;background:linear-gradient(180deg,#e8434a 0%,#d7262e 40%,#a8161d 100%);
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.28),inset 0 -12px 20px rgba(0,0,0,.18),0 18px 30px rgba(120,10,15,.30)}
+.case .lid{position:absolute;left:10px;right:10px;top:26px;height:2px;background:rgba(0,0,0,.18);border-radius:2px;box-shadow:0 1px 0 rgba(255,255,255,.15)}
+.case .led{position:absolute;left:50%;top:60px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:#ffd9d9;box-shadow:0 0 10px #ff9a9a;animation:led 3s ease-in-out infinite}
+.case .shadow{position:absolute;left:8%;right:8%;bottom:-14px;height:18px;border-radius:50%;background:rgba(0,0,0,.18);filter:blur(6px)}
+.case.listening .box{box-shadow:inset 0 3px 0 rgba(255,255,255,.28),0 0 0 8px rgba(215,38,46,.15),0 0 40px rgba(215,38,46,.4)}
+.awake ~ .case,.phone.active .case{transform:translateY(190px);opacity:0;pointer-events:none}
+.hint{position:absolute;left:0;right:0;top:34%;text-align:center;color:var(--muted);font-weight:600;transition:opacity .4s}
+.hint b{display:block;font-size:26px;color:var(--ink);font-weight:800;margin-bottom:6px;letter-spacing:-.3px}
+.phone.active .hint{opacity:0}
+
+/* chest panel */
+.chest{position:absolute;left:30px;right:30px;top:196px;bottom:16px;border-radius:28px;background:var(--glass);color:#dff6ff;z-index:4;
+  border:1px solid var(--cyan-dim);box-shadow:0 0 0 6px rgba(255,255,255,.55),0 20px 40px rgba(10,20,30,.25),inset 0 0 40px rgba(95,216,255,.08);
+  opacity:0;transform:scale(.88);pointer-events:none;transition:opacity .35s,transform .45s cubic-bezier(.34,1.56,.64,1);
+  display:flex;flex-direction:column;padding:16px;overflow:hidden}
+.chest.show{opacity:1;transform:none;pointer-events:auto}
+.chest::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(95,216,255,.035) 0 2px,transparent 2px 4px);pointer-events:none}
+.chest h4{margin:0 0 10px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan);font-weight:800;display:flex;justify-content:space-between}
+.pain-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;flex:1;align-content:center}
+.pf{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;border-radius:16px;min-height:64px;transition:transform .2s,background .2s}
+.pf:hover{background:rgba(95,216,255,.1)}
+.pf.sel{background:rgba(95,216,255,.22);transform:scale(1.12)}
+.pf svg{width:40px;height:40px}
+.pf span{font-weight:800;font-size:14px}
+.pain-legend{display:flex;justify-content:space-between;font-size:11px;color:#9cc7d8;margin-top:6px}
+.scan{flex:1;position:relative;display:flex;align-items:center;justify-content:center}
+.scan svg{height:100%;max-height:220px}
+.scanline{position:absolute;left:8%;right:8%;height:3px;background:var(--cyan);box-shadow:0 0 18px 4px rgba(95,216,255,.6);top:0;animation:scan 1.3s ease-in-out infinite alternate}
+.readings{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.rd{background:rgba(95,216,255,.08);border:1px solid var(--cyan-dim);border-radius:14px;padding:8px 10px}
+.rd small{display:block;font-size:10px;color:#9cc7d8;letter-spacing:1px;text-transform:uppercase}
+.rd b{font-size:18px}
+.em-call{flex:1;border-radius:22px;background:linear-gradient(180deg,#ef3b43,#b5161e);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  box-shadow:0 0 0 0 rgba(239,59,67,.6);animation:ring 1.6s infinite;text-decoration:none}
+.em-call svg{width:40px;height:40px}
+.em-call b{font-size:34px;font-weight:800}
+.em-call small{font-size:13px;opacity:.9}
+.em-row{display:flex;gap:8px;margin-top:10px}
+.em-row button{flex:1;height:50px;border-radius:16px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;font-weight:700}
+.offline-tag{font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(95,216,255,.15);letter-spacing:1px}
+
+.embanner{position:absolute;left:12px;right:12px;top:8px;z-index:6;background:var(--red);color:#fff;border-radius:18px;padding:10px 14px;font-weight:700;font-size:14px;
+  display:flex;gap:10px;align-items:center;transform:translateY(-140%);visibility:hidden;transition:transform .4s cubic-bezier(.34,1.56,.64,1),visibility .4s;box-shadow:0 10px 24px rgba(215,38,46,.35)}
+.emergency .embanner{transform:none;visibility:visible}
+.embanner svg{width:22px;height:22px;flex:none}
+
+/* caption */
+.caption{flex:none;background:var(--surface);border-radius:28px 28px 0 0;padding:6px 22px 4px;box-shadow:0 -10px 30px rgba(20,24,30,.06);position:relative;z-index:5;min-height:122px;cursor:pointer}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 8px}
+.you{font-size:13px;color:var(--muted);min-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.you b{color:var(--ink);font-weight:700}
+.say{font-size:21px;line-height:1.3;font-weight:700;min-height:56px;letter-spacing:-.2px}
+.say .w{opacity:0;display:inline-block;transform:translateY(4px);animation:word .35s ease forwards}
+.lowbatt .say{font-style:italic}
+.lowbatt .say .w{animation:word .35s ease forwards, wobble 1.8s ease-in-out infinite}
+
+.chips{flex:none;display:flex;gap:8px;padding:8px 14px 2px;overflow-x:auto;background:var(--surface);min-height:52px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;height:40px;padding:0 16px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface-2);font-weight:700;font-size:14px;animation:chipin .35s both}
+.chip:hover{border-color:var(--ink)}
+.chip.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.chip.danger{background:var(--red);color:#fff;border-color:var(--red)}
+
+.inputbar{flex:none;display:flex;gap:10px;align-items:center;padding:8px 14px 26px;background:var(--surface)}
+.field{flex:1;height:52px;border-radius:26px;background:var(--surface-2);border:1.5px solid var(--line);display:flex;align-items:center;padding:0 6px 0 18px}
+.field input{flex:1;border:0;outline:0;background:none;font:inherit;font-size:16px;color:var(--ink);min-width:0}
+.send{width:40px;height:40px;border-radius:50%;background:var(--ink);color:var(--surface);display:grid;place-items:center;transform:scale(0);transition:transform .2s}
+.send.on{transform:scale(1)}
+.mic{width:60px;height:60px;border-radius:50%;background:var(--surface);border:2px solid var(--line);display:grid;place-items:center;position:relative;box-shadow:var(--shadow);flex:none}
+.mic svg{width:26px;height:26px}
+.mic.on{background:var(--red);border-color:var(--red);color:#fff}
+.mic.on::before,.mic.on::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid var(--red);animation:ripple 1.4s infinite}
+.mic.on::after{animation-delay:.7s}
+
+/* sheets */
+.sheet{position:absolute;inset:0;z-index:20;background:var(--bg);transform:translateX(100%);transition:transform .45s cubic-bezier(.3,1,.4,1);display:flex;flex-direction:column}
+.sheet.open{transform:none}
+.sheet.bottom{transform:translateY(100%);top:90px;border-radius:28px 28px 0 0;box-shadow:0 -20px 50px rgba(0,0,0,.2)}
+.sheet.bottom.open{transform:none}
+.sh-head{display:flex;align-items:center;gap:6px;padding:52px 12px 8px}
+.sheet.bottom .sh-head{padding-top:10px}
+.sh-head h2{margin:0;font-size:24px;font-weight:800;flex:1;letter-spacing:-.4px}
+.sh-body{flex:1;overflow:auto;padding:4px 18px 30px}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:19;opacity:0;pointer-events:none;transition:opacity .3s}
+.scrim.on{opacity:1;pointer-events:auto}
+
+.msg{display:flex;margin:8px 0}
+.msg div{max-width:80%;padding:10px 14px;border-radius:20px;font-size:15px;line-height:1.35}
+.msg.a div{background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:6px}
+.msg.u{justify-content:flex-end}
+.msg.u div{background:var(--ink);color:var(--surface);border-bottom-right-radius:6px}
+.msg.t{justify-content:center}
+.msg.t div{font-size:12px;color:var(--muted);background:none;padding:2px}
+
+.filters{display:flex;gap:8px;margin:4px 0 14px;overflow:auto}
+.filters .chip{animation:none;height:36px}
+.filters .chip.sel{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.day{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin:16px 4px 8px}
+.entry{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;cursor:pointer;animation:chipin .3s both}
+.badge{width:46px;height:46px;border-radius:16px;display:grid;place-items:center;font-weight:800;font-size:19px;color:#fff;flex:none}
+.entry .meta{flex:1;min-width:0}
+.entry .meta b{display:block;font-size:16px}
+.entry .meta small{color:var(--muted);font-size:13px}
+.entry .more{display:none;margin-top:8px;font-size:14px;line-height:1.4}
+.entry.x .more{display:block}
+.del{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.del:hover{color:var(--red);background:var(--surface-2)}
+.empty{text-align:center;color:var(--muted);padding:40px 0}
+
+.group{background:var(--surface);border:1px solid var(--line);border-radius:22px;margin-bottom:14px;overflow:hidden}
+.gt{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin:18px 6px 8px}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:10px 16px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .lbl{flex:1}
+.row .lbl small{display:block;color:var(--muted);font-size:13px}
+.tg{width:50px;height:30px;border-radius:15px;background:var(--line);position:relative;transition:background .2s;flex:none}
+.tg::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.tg.on{background:var(--green)} .tg.on::after{transform:translateX(20px)}
+input[type=range]{accent-color:var(--red);width:120px}
+.numin{width:80px;height:40px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface-2);color:var(--ink);font:inherit;font-weight:800;text-align:center}
+.tags{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0}
+.tag{padding:6px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-size:13px;font-weight:700}
+.tag.lock{opacity:.6}
+.tag.sel{background:var(--ink);color:var(--surface)}
+.avatar{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff}
+.btn-danger{width:100%;height:52px;border-radius:18px;background:rgba(215,38,46,.1);color:var(--red);font-weight:800;margin-top:6px}
+.note{font-size:13px;color:var(--muted);line-height:1.5;padding:4px 6px}
+
+.modal{position:absolute;inset:0;z-index:30;background:rgba(10,12,16,.5);display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .3s}
+.modal.on{opacity:1;pointer-events:auto}
+.mcard{background:var(--surface);width:100%;border-radius:32px 32px 0 0;padding:26px 24px 34px;transform:translateY(40px);transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
+.modal.on .mcard{transform:none}
+.mcard h3{margin:10px 0 8px;font-size:24px;font-weight:800}
+.mcard p{margin:0 0 18px;color:var(--muted);line-height:1.5}
+.mini{width:110px;height:74px;border-radius:50% 50% 47% 47% / 54% 54% 46% 46%;margin:0 auto;box-shadow:inset -6px -10px 18px rgba(120,130,150,.22),0 8px 16px rgba(0,0,0,.1)}
+.bigbtn{width:100%;height:56px;border-radius:20px;background:var(--ink);color:var(--surface);font-weight:800;font-size:16px}
+.bigbtn.alt{background:var(--surface-2);color:var(--ink);border:1.5px solid var(--line);margin-top:10px}
+.draft{background:var(--surface-2);border:1px solid var(--line);border-radius:18px;padding:14px;font-size:15px;line-height:1.45;margin-bottom:16px}
+
+.toast{position:absolute;left:12px;right:12px;top:50px;z-index:40;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:12px 14px;box-shadow:0 14px 34px rgba(0,0,0,.18);
+  display:flex;gap:12px;align-items:center;transform:translateY(-160%);transition:transform .45s cubic-bezier(.34,1.56,.64,1)}
+.toast.on{transform:none}
+.toast .ti{width:36px;height:36px;border-radius:12px;background:var(--red);display:grid;place-items:center;flex:none}
+.toast .ti i{width:22px;height:14px;border-radius:50%;background:#fff;position:relative}
+.toast b{display:block;font-size:14px} .toast small{color:var(--muted);font-size:13px}
+
+.fist{position:absolute;left:50%;top:44%;font-size:90px;transform:translate(-50%,-50%) scale(0);z-index:8;pointer-events:none}
+.fist.go{animation:fist 1.9s ease both}
+
+/* ---------- demo controls ---------- */
+.ctrl{width:300px;color:#ddd;font-size:14px;align-self:center}
+.ctrl h1{font-size:22px;margin:0 0 4px;color:#fff}
+:root:not([data-theme="dark"]) .ctrl{color:#333} :root:not([data-theme="dark"]) .ctrl h1{color:#111}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .ctrl{color:#ddd}:root:not([data-theme="light"]) .ctrl h1{color:#fff}}
+.ctrl p{margin:0 0 14px;opacity:.75;line-height:1.45}
+.ctrl .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ctrl .grid button{height:42px;border-radius:12px;background:rgba(128,128,128,.14);border:1px solid rgba(128,128,128,.25);font-weight:700;font-size:13px;text-align:left;padding:0 12px}
+.ctrl .grid button:hover{background:rgba(128,128,128,.25)}
+.ctrl .grid button.r{color:#e5484d}
+.ctrl .sec{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;opacity:.55;margin:16px 0 8px}
+.demofab{display:none}
+
+@media (max-width:760px){
+  body{padding:0;display:block;background:var(--bg)}
+  .phone{width:100%;height:100dvh;border-radius:0;box-shadow:none}
+  .ctrl{position:fixed;left:0;right:0;bottom:0;width:auto;background:var(--surface);color:var(--ink)!important;padding:20px 16px 30px;border-radius:24px 24px 0 0;z-index:100;box-shadow:0 -10px 40px rgba(0,0,0,.3);transform:translateY(105%);transition:transform .35s}
+  .ctrl h1{color:var(--ink)!important}
+  .ctrl.open{transform:none}
+  .demofab{display:block;position:fixed;right:12px;top:52px;z-index:101;background:var(--ink);color:var(--surface);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:800}
+  .sbar{display:none}
+}
+
+/* ---------- keyframes ---------- */
+@keyframes breathe{from{transform:scale(1,1)}to{transform:scale(1.008,1.014)}}
+@keyframes bob{0%,100%{translate:0 0}50%{translate:0 2px}}
+@keyframes sway{0%,100%{translate:0 4px;rotate:7deg}50%{translate:0 8px;rotate:12deg}}
+@keyframes blink{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.06)}}
+@keyframes inflateBody{0%{transform:translateY(420px) scale(.32,.06);opacity:0}12%{opacity:1}55%{transform:translateY(-14px) scale(1.04,.96)}75%{transform:translateY(5px) scale(.985,1.02)}100%{transform:none;opacity:1}}
+@keyframes inflateArmL{0%{transform:translateY(400px) rotate(30deg) scale(.4);opacity:0}20%{opacity:1}100%{transform:rotate(9deg)}}
+@keyframes inflateArmR{0%{transform:translateY(400px) rotate(-30deg) scale(.4);opacity:0}20%{opacity:1}100%{transform:rotate(-9deg)}}
+@keyframes inflateHead{0%{transform:translateY(420px) scale(.3);opacity:0}20%{opacity:1}60%{transform:translateY(-16px) scale(1.04,.96)}80%{transform:translateY(4px) scale(.99,1.02)}100%{transform:none;opacity:1}}
+@keyframes deflateHead{0%{transform:none}20%{transform:translateY(-6px) scale(1.02)}100%{transform:translateY(460px) scale(.3);opacity:0}}
+@keyframes deflateBody{0%{transform:none}100%{transform:translateY(430px) scale(.3,.05);opacity:0}}
+@keyframes fadeDown{to{transform:translateY(400px) rotate(var(--r));opacity:0}}
+@keyframes led{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes word{to{opacity:1;transform:none}}
+@keyframes wobble{0%,100%{rotate:0deg}50%{rotate:-3deg;translate:0 2px}}
+@keyframes chipin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes ripple{from{transform:scale(1);opacity:.8}to{transform:scale(1.6);opacity:0}}
+@keyframes pulse{50%{opacity:.4}}
+@keyframes ring{70%{box-shadow:0 0 0 18px rgba(239,59,67,0)}100%{box-shadow:0 0 0 0 rgba(239,59,67,0)}}
+@keyframes scan{from{top:4%}to{top:94%}}
+@keyframes fist{0%{transform:translate(-50%,-50%) scale(0) rotate(-20deg)}25%{transform:translate(-50%,-50%) scale(1.2)}45%{transform:translate(-50%,-50%) scale(1)}60%{transform:translate(-50%,-50%) scale(1.1) rotate(10deg)}100%{transform:translate(-50%,-80%) scale(.9) rotate(-10deg);opacity:0}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+
+<div class="phone" id="phone">
+  <div class="sbar"><span id="clock">9:41</span><span class="bat"><span id="batpct">80%</span><span class="bat-ic"><i></i></span></span></div>
+
+  <div class="topbar">
+    <div class="pill" id="pill"><span class="dot"></span><span id="stateTxt">Idle</span><span class="net" id="netTxt">· Online</span></div>
+    <div class="icons">
+      <button class="ib" id="muteBtn" aria-label="Mute voice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path id="wave" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+      <button class="ib" id="logBtn" aria-label="Health log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-4.4-9.3-9A5.3 5.3 0 0 1 12 6.4 5.3 5.3 0 0 1 21.3 12C19 16.6 12 21 12 21z"/><path d="M7 12h3l1.5-2.5 2 5L15 12h2"/></svg></button>
+      <button class="ib" id="setBtn" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="embanner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+      <span>Possible emergency. Please call for help now.</span></div>
+
+    <div class="hint"><b>Baymax is resting.</b>Say “ow” or tap the case.</div>
+
+    <div class="bm" id="bm">
+      <div class="armwrap l"><div class="arm vinyl"></div></div>
+      <div class="armwrap r"><div class="arm vinyl"></div></div>
+      <div class="bodywrap"><div class="body vinyl"></div><div class="port"></div></div>
+      <div class="headwrap"><div class="head vinyl" id="head">
+        <svg viewBox="0 0 204 136" aria-label="Baymax face">
+          <g id="look"><g id="eyes">
+            <line x1="62" y1="70" x2="142" y2="70" stroke="var(--face)" stroke-width="3.4" stroke-linecap="round"/>
+            <ellipse cx="62" cy="70" rx="11" ry="11.5" fill="var(--face)"/>
+            <ellipse cx="142" cy="70" rx="11" ry="11.5" fill="var(--face)"/>
+          </g></g>
+        </svg>
+      </div></div>
+    </div>
+
+    <div class="case" id="case" role="button" aria-label="Activate Baymax"><div class="shadow"></div><div class="box"></div><div class="lid"></div><div class="led"></div></div>
+
+    <div class="chest" id="chest"></div>
+    <div class="fist" id="fist">👊</div>
+  </div>
+
+  <div class="caption" id="caption">
+    <div class="grab"></div>
+    <div class="you" id="you"></div>
+    <div class="say" id="say"></div>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="inputbar">
+    <form class="field" id="form"><input id="inp" placeholder="Talk to Baymax…" autocomplete="off" aria-label="Message"><button class="send" id="send" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></form>
+    <button class="mic" id="mic" aria-label="Speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg></button>
+  </div>
+
+  <!-- conversation sheet -->
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet bottom" id="convo">
+    <div class="sh-head"><h2 style="padding-left:8px">Conversation</h2><button class="ib" data-close="convo" aria-label="Close">✕</button></div>
+    <div class="sh-body" id="convoList"></div>
+  </div>
+
+  <!-- health log -->
+  <div class="sheet" id="log">
+    <div class="sh-head"><button class="ib" data-close="log" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Health log</h2></div>
+    <div class="sh-body">
+      <div class="filters" id="filters"></div>
+      <div id="logList"></div>
+    </div>
+  </div>
+
+  <!-- settings -->
+  <div class="sheet" id="settings">
+    <div class="sh-head"><button class="ib" data-close="settings" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Settings</h2></div>
+    <div class="sh-body">
+      <div class="gt">Voice</div>
+      <div class="group">
+        <div class="row"><div class="lbl">Speak replies aloud</div><button class="tg on" id="tgVoice" aria-label="Speak replies"></button></div>
+        <div class="row"><div class="lbl">Speech rate</div><input type="range" min="0.6" max="1.2" step="0.05" value="0.85" id="rate"></div>
+        <div class="row"><div class="lbl">Pitch</div><input type="range" min="0.5" max="1.3" step="0.05" value="0.8" id="pitch"></div>
+        <div class="row"><div class="lbl">Wake word<small>“Hey Baymax” in background</small></div><button class="tg" aria-label="Wake word"></button></div>
+      </div>
+      <div class="gt">Care</div>
+      <div class="group">
+        <div class="row"><div class="lbl">Distress words<div class="tags"><span class="tag">ow</span><span class="tag">ouch</span><span class="tag">hurts</span><span class="tag">pain</span><span class="tag">+ add</span></div></div></div>
+        <div class="row"><div class="lbl">Emergency number<small>Used by the call button</small></div><input class="numin" id="emnum" value="112" inputmode="tel"></div>
+      </div>
+      <div class="gt">Trusted contacts</div>
+      <div class="group">
+        <div class="row"><div class="avatar" style="background:#e8434a">P</div><div class="lbl">Priya<small>WhatsApp · +91 98•••• 2210</small></div></div>
+        <div class="row"><div class="avatar" style="background:#3b82c4">R</div><div class="lbl">Rahul<small>SMS · +91 99•••• 7781</small></div></div>
+        <div class="row"><div class="lbl" style="font-weight:700">+ Add contact</div></div>
+      </div>
+      <div class="gt">Modes</div>
+      <div class="group"><div class="row"><div class="tags" id="modes"><span class="tag sel lock">Care · always on</span><span class="tag" data-m>Fitness</span><span class="tag" data-m>Sleep</span><span class="tag" data-m>Study</span></div></div></div>
+      <div class="gt">Appearance</div>
+      <div class="group"><div class="row"><div class="tags" id="themes"><span class="tag sel" data-t="system">System</span><span class="tag" data-t="light">Light</span><span class="tag" data-t="dark">Dark</span></div></div></div>
+      <div class="gt">Privacy</div>
+      <div class="group" style="padding:12px 16px">
+        <div class="note">Your health log and memories stay on this phone. Nothing is synced.</div>
+        <button class="btn-danger" id="forget">Forget everything</button>
+      </div>
+      <div class="note">Baymax is not a medical device. He does not diagnose or prescribe. In an emergency, call your local emergency number.</div>
+    </div>
+  </div>
+
+  <!-- modal -->
+  <div class="modal" id="modal"><div class="mcard" id="mcard"></div></div>
+  <div class="toast" id="toast"><div class="ti"><i></i></div><div><b id="toastT"></b><small id="toastS"></small></div></div>
+</div>
+
+<button class="demofab" id="demofab">Demo ▾</button>
+<div class="ctrl" id="ctrl">
+  <h1>Baymax · Phase 1 demo</h1>
+  <p>Interactive sample. Type or tap like a real user (try “ow”, “my chest hurts”, “I feel low”, “remind me to drink water”, “fist bump”), or jump to any moment below.</p>
+  <div class="sec">Care protocol</div>
+  <div class="grid">
+    <button data-d="ow">Say “ow”</button>
+    <button data-d="hello">Tap to wake</button>
+    <button data-d="pain">Pain scale</button>
+    <button data-d="scan">Scan</button>
+    <button data-d="sat">Satisfaction</button>
+    <button data-d="exit">Exit phrase</button>
+  </div>
+  <div class="sec">States</div>
+  <div class="grid">
+    <button data-d="em" class="r">Red flag</button>
+    <button data-d="low">Low battery</button>
+    <button data-d="offline">LLM offline</button>
+    <button data-d="theme">Dark / light</button>
+  </div>
+  <div class="sec">Screens</div>
+  <div class="grid">
+    <button data-d="log">Health log</button>
+    <button data-d="settings">Settings</button>
+    <button data-d="convo">Conversation</button>
+    <button data-d="disc">First launch</button>
+    <button data-d="friend">Contact friend</button>
+    <button data-d="reset">Reset</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const phone = $('#phone'), bm = $('#bm'), head = $('#head'), eyes = $('#eyes'), look = $('#look'),
+  sayEl = $('#say'), youEl = $('#you'), chipsEl = $('#chips'), chest = $('#chest'), inp = $('#inp');
+
+const EXIT = 'i am satisfied with my care';
+const DISTRESS = ['ow','ouch','owie','hurts','hurt','pain','painful'];
+const RED = [/chest (pain|hurts?)/, /can'?t breathe|cannot breathe|not able to breathe/, /heavy bleeding|bleeding (a lot|heavily)/, /kill myself|self[- ]harm|suicid|end my life/, /unconscious|stroke|heart attack/];
+
+const S = { state:'IDLE', awake:false, pain:null, answers:[], muted:false, low:false, offline:false, token:0, history:[], log:[] };
+
+/* ---------- helpers ---------- */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function setState(name, kind='on'){
+  S.state = name;
+  const labels = {IDLE:'Idle',WAKING:'Waking',CHAT:'Listening',PAIN:'Pain scale',SCAN:'Scanning',INTERVIEW:'Care',CARE:'Care',SAT:'Care',EMERGENCY:'Emergency',MOOD:'Care'};
+  $('#stateTxt').textContent = S.low && name!=='EMERGENCY' && name!=='IDLE' ? 'Low battery' : labels[name] || name;
+  const p = $('#pill'); p.className = 'pill ' + (name==='IDLE' ? '' : name==='EMERGENCY' ? 'em' : S.low ? 'warn' : kind);
+}
+function blink(){ eyes.classList.remove('blink'); void eyes.getBBox(); eyes.classList.add('blink'); }
+(function blinkLoop(){ if (S.awake) blink(); setTimeout(blinkLoop, 3000 + Math.random()*3000); })();
+function tilt(on){ head.classList.toggle('tilt', on); }
+
+/* audio */
+let ac;
+function audio(){ try { ac = ac || new (window.AudioContext||window.webkitAudioContext)(); if (ac.state==='suspended') ac.resume(); return ac; } catch(e){ return null; } }
+function whoosh(up=true){
+  const a = audio(); if (!a) return;
+  const len = a.sampleRate*1.3, buf = a.createBuffer(1,len,a.sampleRate), d = buf.getChannelData(0);
+  for (let i=0;i<len;i++) d[i] = Math.random()*2-1;
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type='bandpass'; f.Q.value=1.2;
+  const g = a.createGain(), t = a.currentTime;
+  f.frequency.setValueAtTime(up?200:1400,t); f.frequency.exponentialRampToValueAtTime(up?1400:150,t+1.2);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.18,t+.2); g.gain.linearRampToValueAtTime(0,t+1.25);
+  src.connect(f).connect(g).connect(a.destination); src.start(); src.stop(t+1.3);
+}
+function boop(){
+  const a = audio(); if (!a) return; const t = a.currentTime;
+  [[660,0],[880,.16]].forEach(([fr,dl]) => {
+    const o = a.createOscillator(), g = a.createGain(); o.type='sine'; o.frequency.value=fr;
+    g.gain.setValueAtTime(0,t+dl); g.gain.linearRampToValueAtTime(.12,t+dl+.02); g.gain.exponentialRampToValueAtTime(.001,t+dl+.22);
+    o.connect(g).connect(a.destination); o.start(t+dl); o.stop(t+dl+.25);
+  });
+}
+
+/* TTS */
+let voice = null;
+function pickVoice(){
+  const vs = speechSynthesis?.getVoices?.() || [];
+  voice = vs.find(v => /Google UK English Male|Daniel|Alex|Aaron|Male/i.test(v.name) && /^en/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
+}
+if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+function speak(text){
+  return new Promise(res => {
+    if (S.muted || !$('#tgVoice').classList.contains('on') || !('speechSynthesis' in window)) return res();
+    try {
+      const u = new SpeechSynthesisUtterance(text.replace(/…/g,'...'));
+      if (voice) u.voice = voice;
+      u.rate = +$('#rate').value * (S.low ? .7 : 1); u.pitch = +$('#pitch').value * (S.low ? .8 : 1);
+      u.onend = u.onerror = res; speechSynthesis.speak(u);
+      setTimeout(res, 12000);
+    } catch(e){ res(); }
+  });
+}
+function slur(t){
+  return t.replace(/([aeiou])([a-z]*)(\W|$)/i, '$1$1$1$2$3').replace(/\. /g,'… ').replace(/\.$/, '…').toLowerCase();
+}
+
+/* speech queue */
+let chain = Promise.resolve();
+function say(text, {tiltOn=false, chips=null} = {}){
+  const tok = S.token;
+  chain = chain.then(async () => {
+    if (tok !== S.token) return;
+    const shown = S.low ? slur(text) : text;
+    tilt(tiltOn); blink();
+    S.history.push({r:'a', t:shown}); renderConvo();
+    sayEl.innerHTML = shown.split(' ').map((w,i) => `<span class="w" style="animation-delay:${i*.16}s${S.low?`,${i*.1}s`:''}">${w}</span>`).join(' ');
+    setChips([]);
+    await Promise.all([speak(shown), sleep(shown.split(' ').length*160 + 450)]);
+    if (tok !== S.token) return;
+    if (chips) setChips(chips);
+  });
+  return chain;
+}
+function userSay(t){ youEl.innerHTML = `You: <b>${esc(t)}</b>`; S.history.push({r:'u', t}); renderConvo(); }
+function sysNote(t){ S.history.push({r:'t', t}); renderConvo(); }
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function setChips(list){
+  chipsEl.innerHTML = '';
+  list.forEach((c,i) => {
+    const o = typeof c==='string' ? {t:c} : c;
+    const b = document.createElement('button'); b.className = 'chip ' + (o.k||''); b.textContent = o.t; b.style.animationDelay = i*.05+'s';
+    b.onclick = () => o.fn ? o.fn() : handle(o.t);
+    chipsEl.appendChild(b);
+  });
+}
+
+/* ---------- body ---------- */
+async function wake(){
+  if (S.awake) return;
+  S.awake = true; setState('WAKING');
+  phone.classList.add('active'); bm.classList.remove('deflating');
+  whoosh(true); void bm.offsetWidth; bm.classList.add('awake');
+  await sleep(1500); boop(); blink();
+}
+async function deflate(){
+  S.token++; chain = Promise.resolve(); speechSynthesis?.cancel?.();
+  hideChest(); setChips([]); tilt(false);
+  bm.classList.remove('awake'); bm.classList.add('deflating'); whoosh(false);
+  S.awake = false; await sleep(1300);
+  bm.classList.remove('deflating'); phone.classList.remove('active','emergency');
+  setState('IDLE'); sayEl.textContent = ''; youEl.textContent = ''; sysNote('Baymax deactivated');
+}
+
+/* ---------- chest panel ---------- */
+function hideChest(){ chest.classList.remove('show'); }
+function faceSvg(n){
+  const hue = 130 - (n-1)*14.4, c = `hsl(${hue},70%,52%)`, curve = 10 - (n-1)*2.2;
+  const tears = n>=9 ? `<path d="M13 22 q-2 5 0 6 q2 -1 0 -6z" fill="#7fd3ff"/><path d="M27 22 q-2 5 0 6 q2 -1 0 -6z" fill="#7fd3ff"/>` : '';
+  return `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="${c}"/><circle cx="14" cy="16" r="2.4" fill="#122"/><circle cx="26" cy="16" r="2.4" fill="#122"/>
+  <path d="M12 ${27 - curve/2} Q20 ${27 + curve} 28 ${27 - curve/2}" stroke="#122" stroke-width="2.4" fill="none" stroke-linecap="round"/>${tears}</svg>`;
+}
+function painColor(n){ return `hsl(${130-(n-1)*14.4},65%,45%)`; }
+function showPain(){
+  chest.innerHTML = `<h4><span>Pain scale</span><span>1 – 10</span></h4><div class="pain-grid">${
+    Array.from({length:10},(_,i)=>`<button class="pf" data-n="${i+1}" aria-label="Pain ${i+1}">${faceSvg(i+1)}<span>${i+1}</span></button>`).join('')
+  }</div><div class="pain-legend"><span>No hurt</span><span>Worst hurt</span></div>`;
+  chest.querySelectorAll('.pf').forEach(b => b.onclick = () => choosePain(+b.dataset.n));
+  chest.classList.add('show');
+}
+function showScan(done){
+  chest.innerHTML = `<h4><span id="scT">Scanning</span><span id="scP">0%</span></h4>
+  <div class="scan"><svg viewBox="0 0 100 200" fill="none" stroke="#5fd8ff" stroke-width="1.6" opacity=".9">
+   <circle cx="50" cy="24" r="14"/><path d="M50 38v6M30 50q20-8 40 0l6 52-8 2-6-40v58l-4 70h-8l-4-62-4 62h-8l-4-70V64l-6 40-8-2z"/>
+   <circle cx="50" cy="70" r="3" fill="#5fd8ff" opacity=".6"><animate attributeName="r" values="3;6;3" dur="1s" repeatCount="indefinite"/></circle></svg>
+   ${done ? '' : '<div class="scanline"></div>'}</div>
+  <div class="readings" id="rds" style="${done?'':'opacity:.25'}">
+   <div class="rd"><small>Heart rate</small><b>78</b> bpm</div><div class="rd"><small>Steps today</small><b>4,210</b></div>
+   <div class="rd"><small>Sleep</small><b>6h 40m</b></div><div class="rd"><small>Source</small><b style="font-size:13px">Health Connect</b></div></div>`;
+  chest.classList.add('show');
+}
+function showEmergency(){
+  const num = $('#emnum').value || '112';
+  chest.innerHTML = `<h4><span>Emergency</span><span class="offline-tag">WORKS OFFLINE</span></h4>
+   <a class="em-call" href="tel:${num}" id="callBtn"><svg viewBox="0 0 24 24" fill="#fff"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg><b>Call ${num}</b><small>Tap to open dialer</small></a>
+   <div class="em-row"><button id="emFriend">Message Priya</button><button id="emOk">I am okay now</button></div>`;
+  $('#callBtn').onclick = e => { e.preventDefault(); toast('Opening dialer', `ACTION_DIAL · ${num}`); };
+  $('#emFriend').onclick = () => friendSheet(true);
+  $('#emOk').onclick = () => handle('I am okay now');
+  chest.classList.add('show');
+}
+
+/* ---------- protocol ---------- */
+const QUESTIONS = [
+  {q:'Where does it hurt?', c:['Head','Stomach','Arm','Leg','Back']},
+  {q:'When did it start?', c:['Just now','Earlier today','A few days ago']},
+  {q:'Is it getting worse?', c:['No','A little','Yes']},
+];
+const ADVICE = {
+  Head:'Drink a glass of water. Rest in a quiet, dim room. Limit screen time for one hour.',
+  Stomach:'Sip warm water slowly. Avoid heavy food for a few hours. Rest on your side.',
+  Arm:'Your injury appears minor. Apply a cold pack for fifteen minutes. Rest the arm.',
+  Leg:'Your injury appears minor. Apply a cold pack for fifteen minutes. Keep the leg raised.',
+  Back:'Rest on a firm surface. Gentle stretching may help. Avoid lifting heavy things.',
+};
+
+async function startCare(fromWake){
+  if (fromWake){ await wake(); await say('Hello. I am Baymax, your personal healthcare companion.'); await say('I was alerted to the need for medical attention when you said “ow”.'); }
+  S.pain = null; S.answers = []; setState('PAIN');
+  await say('On a scale of one to ten, how would you rate your pain?', {tiltOn:true});
+  if (S.state === 'PAIN') showPain();
+}
+async function choosePain(n){
+  if (S.state !== 'PAIN') return;
+  S.pain = n; chest.querySelectorAll('.pf').forEach(b => b.classList.toggle('sel', +b.dataset.n === n));
+  userSay(String(n)); await sleep(500); hideChest();
+  await say(n >= 8 ? `A ${n}. That is a lot of pain. I will scan you now.` : `A ${n}. I will scan you now.`);
+  await runScan();
+  S.qi = 0; setState('INTERVIEW'); ask();
+}
+async function runScan(){
+  setState('SCAN'); showScan(false);
+  for (let p=0;p<=100;p+=5){ const el = $('#scP'); if (el) el.textContent = p+'%'; await sleep(90); }
+  if (S.state !== 'SCAN') return;
+  showScan(true); $('#scT').textContent = 'Scan complete'; $('#scP').textContent = '✓';
+  await say('Scan complete.');
+  await sleep(900); hideChest();
+}
+function ask(){ const q = QUESTIONS[S.qi]; say(q.q, {tiltOn:true, chips:q.c}); }
+async function care(){
+  setState('CARE');
+  const loc = S.answers[0] || 'Arm';
+  await say(ADVICE[loc] || 'Rest, and drink some water. I will stay with you.');
+  if (S.answers[2] === 'Yes' || S.pain >= 8) await say('If the pain gets worse, please see a doctor.');
+  addLog({pain:S.pain, loc, start:S.answers[1], mood:3});
+  sysNote('Saved to health log');
+  setState('SAT');
+  await say('Are you satisfied with your care?', {tiltOn:true, chips:[{t:'I am satisfied with my care', k:'primary'}, 'Not yet']});
+}
+async function emergency(){
+  S.token++; chain = Promise.resolve(); speechSynthesis?.cancel?.();
+  if (!S.awake){ S.awake = true; phone.classList.add('active'); bm.classList.remove('deflating'); bm.classList.add('awake'); }
+  phone.classList.add('emergency'); setState('EMERGENCY'); hideChest(); await sleep(200); showEmergency();
+  sysNote('Red flag detected on device');
+  say(`I have detected signs of a possible emergency. Please call ${$('#emnum').value || '112'} now. I will stay with you.`, {chips:[{t:`Call ${$('#emnum').value||'112'}`, k:'danger', fn:()=>$('#callBtn').click()}, {t:'Message a friend', fn:()=>friendSheet(true)}, 'I am okay now']});
+}
+async function mood(){
+  setState('MOOD');
+  await say('I am sorry you feel low. On a scale of one to five, how is your mood?', {tiltOn:true, chips:['1','2','3','4','5']});
+}
+
+async function handle(raw){
+  const text = raw.trim(); if (!text) return;
+  const t = text.toLowerCase();
+  if (RED.some(r => r.test(t))){ userSay(text); return emergency(); }
+  userSay(text);
+  const words = t.split(/[^a-z']+/);
+  const distress = DISTRESS.some(w => words.includes(w));
+
+  if (S.state === 'IDLE'){
+    if (distress) return startCare(true);
+    await wake(); await say('Hello. I am Baymax, your personal healthcare companion.');
+    setState('CHAT'); return route(t, text);
+  }
+  if (t.replace(/[.!]/g,'') === EXIT){
+    if (S.state === 'EMERGENCY'){ phone.classList.remove('emergency'); }
+    return deflate();
+  }
+  if (S.state === 'EMERGENCY'){
+    if (/okay|ok|fine|better/.test(t)){ phone.classList.remove('emergency'); hideChest(); setState('SAT');
+      return say('I am glad. Are you satisfied with your care?', {tiltOn:true, chips:[{t:'I am satisfied with my care',k:'primary'},'Not yet']}); }
+    return say('I will stay with you. Please call for help.');
+  }
+  if (S.state === 'SAT'){ await say('I will continue to care for you.'); setState('CARE'); return care(); }
+  if (S.state === 'PAIN'){ const n = parseInt(t.match(/\d+/)?.[0]); if (n>=1 && n<=10) return choosePain(n); return say('Please choose a number from one to ten.', {tiltOn:true}); }
+  if (S.state === 'INTERVIEW'){ S.answers.push(text); S.qi++; if (S.qi < QUESTIONS.length) return ask(); return care(); }
+  if (S.state === 'MOOD' && /^[1-5]$/.test(t)){
+    addLog({pain:null, mood:+t, loc:'Mood check'}); setState('CHAT');
+    await say('Thank you for telling me. Talking to a friend may help.');
+    return say('Would you like me to draft a message to Priya?', {tiltOn:true, chips:[{t:'Yes, draft it', k:'primary', fn:()=>{userSay('Yes, draft it'); friendSheet(false);}}, 'No, thank you']});
+  }
+  if (distress){ return startCare(false); }
+  setState('CHAT'); return route(t, text);
+}
+async function route(t){
+  if (S.offline){ return say('I cannot think clearly right now. The pain scale, health log, reminders and emergency button still work.', {chips:['ow','Open health log']}); }
+  if (/low|sad|lonely|depress|down|anxious|stress/.test(t)) return mood();
+  if (/remind/.test(t)){ await say('Reminder set. I will remind you to drink water every two hours.'); sysNote('Tool: create_reminder · every 2h'); setTimeout(()=>toast('Baymax','Time to drink water. Hydration is important.'), 1800); return chips0(); }
+  if (/fist ?bump/.test(t)){ const f = $('#fist'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); await say('Ba la la la la.'); return chips0(); }
+  if (/health log|open health log/.test(t)) return openSheet('log');
+  if (/bye|deactivate|go away|stop|leave/.test(t)) return say('I cannot deactivate until you say you are satisfied with your care.', {chips:[{t:'I am satisfied with my care',k:'primary'}]});
+  if (/hi|hello|hey/.test(t)) return say('Hello. How can I help you today?', {chips:['ow','I feel low','Remind me to drink water','Fist bump']});
+  await say('I am listening. In the full app I will think about this carefully.'); chips0();
+}
+function chips0(){ setChips(['ow','I feel low','Remind me to drink water','Fist bump',{t:'I am satisfied with my care',k:'primary'}]); }
+
+/* ---------- log ---------- */
+const DAY = 864e5, now = Date.now();
+S.log = [
+  {id:1, ts:now-2*36e5, pain:4, loc:'Arm', start:'Just now', mood:3, note:'Cold pack for 15 min. Rest the arm.'},
+  {id:2, ts:now-DAY-5*36e5, pain:2, loc:'Head', start:'Earlier today', mood:4, note:'Water, quiet dim room.'},
+  {id:3, ts:now-3*DAY, pain:null, loc:'Mood check', mood:2, note:'Suggested messaging a friend.'},
+  {id:4, ts:now-12*DAY, pain:7, loc:'Back', start:'A few days ago', mood:2, note:'Firm surface, gentle stretching.'},
+];
+let filter = 'all';
+function addLog(e){ S.log.unshift({id:Date.now(), ts:Date.now(), note:ADVICE[e.loc]||'', ...e}); renderLog(); }
+function renderLog(){
+  const lim = {today:DAY, week:7*DAY, month:30*DAY, all:Infinity}[filter];
+  $('#filters').innerHTML = [['today','Today'],['week','7 days'],['month','30 days'],['all','All']].map(([k,l]) => `<button class="chip ${k===filter?'sel':''}" data-f="${k}">${l}</button>`).join('');
+  $('#filters').querySelectorAll('button').forEach(b => b.onclick = () => { filter = b.dataset.f; renderLog(); });
+  const items = S.log.filter(e => Date.now() - e.ts < lim);
+  if (!items.length){ $('#logList').innerHTML = '<div class="empty">No entries yet.<br>Baymax will save each care session here.</div>'; return; }
+  let html = '', last = '';
+  const moods = ['','😞','🙁','😐','🙂','😄'];
+  items.forEach(e => {
+    const d = new Date(e.ts), dl = new Date().toDateString() === d.toDateString() ? 'Today' : d.toLocaleDateString(undefined,{weekday:'long', day:'numeric', month:'short'});
+    if (dl !== last){ html += `<div class="day">${dl}</div>`; last = dl; }
+    html += `<div class="entry" data-id="${e.id}"><div class="badge" style="background:${e.pain ? painColor(e.pain) : '#8a7fd1'}">${e.pain ?? moods[e.mood]}</div>
+      <div class="meta"><b>${e.pain ? `Pain ${e.pain} · ${e.loc}` : e.loc}</b><small>${d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})}${e.start?' · started '+e.start.toLowerCase():''} · mood ${moods[e.mood]||''}</small>
+      <div class="more"><b style="font-size:13px;color:var(--muted)">Care given</b>${e.note || '—'}</div></div>
+      <button class="del" aria-label="Delete entry"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button></div>`;
+  });
+  $('#logList').innerHTML = html;
+  $('#logList').querySelectorAll('.entry').forEach(el => {
+    el.onclick = () => el.classList.toggle('x');
+    el.querySelector('.del').onclick = ev => { ev.stopPropagation(); S.log = S.log.filter(x => x.id != el.dataset.id); renderLog(); };
+  });
+}
+function renderConvo(){
+  $('#convoList').innerHTML = S.history.length ? S.history.map(m => `<div class="msg ${m.r}"><div>${esc(m.t)}</div></div>`).join('') : '<div class="empty">No conversation yet.</div>';
+  const l = $('#convoList'); l.scrollTop = l.scrollHeight;
+}
+
+/* ---------- sheets & modals ---------- */
+function openSheet(id){ closeAll(); $('#'+id).classList.add('open'); if (id==='convo') $('#scrim').classList.add('on'); if (id==='log') renderLog(); }
+function closeAll(){ document.querySelectorAll('.sheet').forEach(s => s.classList.remove('open')); $('#scrim').classList.remove('on'); }
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
+$('#scrim').onclick = closeAll;
+$('#caption').onclick = () => openSheet('convo');
+$('#logBtn').onclick = () => openSheet('log');
+$('#setBtn').onclick = () => openSheet('settings');
+
+function modal(html){ $('#mcard').innerHTML = html; $('#modal').classList.add('on'); }
+function closeModal(){ $('#modal').classList.remove('on'); }
+$('#modal').onclick = e => { if (e.target.id === 'modal') closeModal(); };
+function disclaimer(){
+  modal(`<div class="mini vinyl" style="display:grid;place-items:center"><svg viewBox="0 0 204 136" width="110"><line x1="62" y1="70" x2="142" y2="70" stroke="#111317" stroke-width="5" stroke-linecap="round"/><circle cx="62" cy="70" r="14" fill="#111317"/><circle cx="142" cy="70" r="14" fill="#111317"/></svg></div>
+   <h3>Hello. I am Baymax.</h3><p>I can comfort you, check on you, and give general self-care tips. I am <b>not a doctor</b> and I do not diagnose or prescribe. In an emergency, call your local emergency number.</p>
+   <button class="bigbtn" id="okD">I understand</button>`);
+  $('#okD').onclick = () => { closeModal(); try { localStorage.setItem('bm-disc','1'); } catch(e){} };
+}
+function friendSheet(urgent){
+  const msg = urgent ? 'Hi Priya, I am not feeling well and may need help. Can you call me or come over?' : 'Hi Priya, I am feeling a bit low today. Could we talk for a few minutes?';
+  modal(`<h3>Message Priya?</h3><p>Baymax drafted this. Nothing is sent until you confirm.</p><div class="draft" contenteditable="true">${msg}</div>
+   <button class="bigbtn" id="sendW">Send via WhatsApp</button><button class="bigbtn alt" id="sendS">Send via SMS</button><button class="bigbtn alt" id="cancelF">Cancel</button>`);
+  const done = via => { closeModal(); toast('Opening ' + via, 'Draft ready for Priya'); sysNote('Tool: draft_message → Priya (' + via + ')'); };
+  $('#sendW').onclick = () => done('WhatsApp'); $('#sendS').onclick = () => done('SMS'); $('#cancelF').onclick = closeModal;
+}
+let tt; function toast(t, s){ $('#toastT').textContent = t; $('#toastS').textContent = s; $('#toast').classList.add('on'); clearTimeout(tt); tt = setTimeout(()=>$('#toast').classList.remove('on'), 3200); }
+
+/* ---------- input ---------- */
+inp.addEventListener('input', () => $('#send').classList.toggle('on', !!inp.value.trim()));
+inp.addEventListener('focus', () => look.style.transform = 'translate(0,5px)');
+inp.addEventListener('blur', () => look.style.transform = '');
+$('#form').onsubmit = e => { e.preventDefault(); const v = inp.value; inp.value=''; $('#send').classList.remove('on'); handle(v); };
+$('#case').onclick = () => { if (!S.awake) handle('Hello'); };
+head.onclick = () => { blink(); tilt(true); setTimeout(()=>tilt(false), 900); };
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition; let rec = null;
+$('#mic').onclick = () => {
+  audio();
+  if (rec){ rec.stop(); return; }
+  if (!SR){ toast('Microphone', 'Speech input not available in this browser. Type instead.'); return; }
+  try {
+    rec = new SR(); rec.lang = 'en-IN'; rec.interimResults = true;
+    $('#mic').classList.add('on'); $('#case').classList.add('listening');
+    rec.onresult = e => { const r = e.results[e.results.length-1]; inp.value = r[0].transcript; if (r.isFinal){ const v = inp.value; inp.value=''; handle(v); } };
+    rec.onerror = () => toast('Microphone', 'I could not hear you. Please try again.');
+    rec.onend = () => { rec = null; $('#mic').classList.remove('on'); $('#case').classList.remove('listening'); };
+    rec.start();
+  } catch(e){ rec = null; $('#mic').classList.remove('on'); }
+};
+$('#muteBtn').onclick = () => { S.muted = !S.muted; $('#wave').style.display = S.muted ? 'none' : ''; speechSynthesis?.cancel?.(); toast(S.muted ? 'Voice muted' : 'Voice on', S.muted ? 'Baymax will reply in text only.' : 'Baymax will speak his replies.'); };
+
+/* settings interactions */
+document.querySelectorAll('.tg').forEach(t => t.onclick = () => t.classList.toggle('on'));
+document.querySelectorAll('[data-m]').forEach(t => t.onclick = () => t.classList.toggle('sel'));
+document.querySelectorAll('[data-t]').forEach(t => t.onclick = () => {
+  document.querySelectorAll('[data-t]').forEach(x => x.classList.remove('sel')); t.classList.add('sel');
+  if (t.dataset.t === 'system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = t.dataset.t;
+});
+$('#forget').onclick = () => {
+  modal(`<h3>Forget everything?</h3><p>This erases your health log, memories, reminders, contacts and settings from this phone. It cannot be undone.</p>
+   <button class="bigbtn" style="background:var(--red)" id="fYes">Forget everything</button><button class="bigbtn alt" id="fNo">Cancel</button>`);
+  $('#fYes').onclick = () => { S.log = []; S.history = []; renderLog(); renderConvo(); closeModal(); toast('Done', 'All local data erased.'); };
+  $('#fNo').onclick = closeModal;
+};
+
+/* ---------- demo controls ---------- */
+function setLow(on){ S.low = on; phone.classList.toggle('lowbatt', on); $('#batpct').textContent = on ? '12%' : '80%'; setState(S.state); }
+async function jumpAwake(){ if (!S.awake){ await wake(); } }
+const D = {
+  ow: () => { if (S.state==='IDLE') handle('ow'); else handle('ow'); },
+  hello: () => { if (!S.awake) handle('Hello'); },
+  pain: async () => { S.token++; chain = Promise.resolve(); hideChest(); phone.classList.remove('emergency'); await jumpAwake(); S.pain=null; setState('PAIN'); await say('On a scale of one to ten, how would you rate your pain?', {tiltOn:true}); showPain(); },
+  scan: async () => { S.token++; chain = Promise.resolve(); hideChest(); phone.classList.remove('emergency'); await jumpAwake(); await runScan(); },
+  sat: async () => { S.token++; chain = Promise.resolve(); hideChest(); phone.classList.remove('emergency'); await jumpAwake(); setState('SAT'); say('Are you satisfied with your care?', {tiltOn:true, chips:[{t:'I am satisfied with my care',k:'primary'},'Not yet']}); },
+  exit: () => { if (S.awake) handle('I am satisfied with my care'); },
+  em: () => handle('My chest hurts and I can\'t breathe'),
+  low: () => { setLow(!S.low); if (S.awake) say('My battery is low. I am… perfectly fine.'); },
+  offline: () => { S.offline = !S.offline; $('#netTxt').textContent = S.offline ? '· Offline' : '· Online'; toast(S.offline ? 'LLM unreachable' : 'Back online', S.offline ? 'Gemini and Groq failed. Offline features stay on.' : 'Gemini connected.'); },
+  theme: () => { const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.theme = cur === 'dark' ? 'light' : 'dark'; },
+  log: () => openSheet('log'), settings: () => openSheet('settings'), convo: () => openSheet('convo'),
+  disc: disclaimer, friend: () => friendSheet(false),
+  reset: () => location.reload(),
+};
+document.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { audio(); closeAll(); closeModal(); $('#ctrl').classList.remove('open'); D[b.dataset.d](); });
+$('#demofab').onclick = () => $('#ctrl').classList.toggle('open');
+
+/* clock + battery */
+function tick(){ const d = new Date(); $('#clock').textContent = d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}).replace(/\s?[AP]M/i,''); }
+tick(); setInterval(tick, 30000);
+navigator.getBattery?.().then(b => { const upd = () => { if (b.level < .15 && !b.charging) setLow(true); }; upd(); b.onlevelchange = upd; }).catch(()=>{});
+
+renderLog(); renderConvo();
+let seen = false; try { seen = !!localStorage.getItem('bm-disc'); } catch(e){}
+if (!seen) setTimeout(disclaimer, 400);
+})();
+</script>
+</body>
+</html>
