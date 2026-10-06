@@ -33,7 +33,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.ayush.baymax.ui.home.HealthReadings
+import com.ayush.baymax.agent.HealthReadings
 import com.ayush.baymax.ui.theme.BaymaxTheme
 
 /** Body scan: outline figure with a sweeping line, then readings from Health Connect. */

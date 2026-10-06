@@ -8,8 +8,8 @@ Personal Android app that turns Baymax (Big Hero 6) into a voice-and-chat health
 |---|---|---|
 | 1 | UI spec + interactive HTML demo (`demo/index.html`) | Done |
 | 2 | Compose design system, Baymax character + animations, chest panel, Home screen | Done |
-| 3 | Care-protocol state machine wired to the UI | Next |
-| 4 | Health log, settings, sheets, reminders, contact friend, low battery | |
+| 3 | Care-protocol state machine, safety rules, voice in/out | Done |
+| 4 | Health log, settings, sheets, reminders, contact friend | Next |
 | 5 | Gemini/Groq, speech, Health Connect, Room | |
 
 ## Build
@@ -22,28 +22,37 @@ Open the project in Android Studio (Ladybug or newer) and run `app`, or:
 
 Requires JDK 17+ and Android SDK 35. Min SDK 26.
 
-## Phase 2 sandbox
+## Try it
 
-Until Phase 3 lands, `ui/home/SandboxController.kt` scripts Baymax so the UI can be tried on a phone:
+- Say or type **ow**: Baymax inflates out of his case, greets you and shows the pain scale on his chest
+- Tap a number, or say it: he scans you, asks where it hurts, when it started and whether it is getting worse, then gives self-care advice
+- He asks **"Are you satisfied with your care?"** Anything except **I am satisfied with my care** keeps him caring for you
+- Say **my chest hurts**, **I can't breathe**, **heavy bleeding** or a self-harm phrase at any time: Emergency mode with a one-tap call button. Works in airplane mode
+- **I feel low**: a gentle mood check
+- Tap the mic to talk (on-device speech recognition); replies are spoken aloud (mute in the top bar)
+- Below 15% battery and not charging, his eyes droop and his speech slurs
 
-- type **ow** → he inflates out of the case, greets you, shows the pain scale
-- tap a number → scan → advice → "Are you satisfied with your care?"
-- **I am satisfied with my care** → he deflates back into the case
-- **my chest hurts** → emergency mode with the call button (opens the dialer)
-- tap the case to wake him, tap his head to make him blink and tilt
+## Tests
+
+```
+./gradlew :app:testDebugUnitTest
+```
+
+Covers the SRS acceptance checks that do not need a device: T-1 persona lines (no contractions, under 40 words), T-3 care loop (only the exit phrase returns to Idle), T-4 red flags from every state, plus the UI controller's interruption handling.
 
 ## Code layout
 
 ```
 app/src/main/java/com/ayush/baymax/
-  agent/AgentState.kt          care-protocol states
+  agent/                       care protocol state machine, safety rules (pure Kotlin, unit tested)
+  voice/                       text-to-speech and speech recognition
   ui/theme/                    colors, type (Nunito), BaymaxTheme
   ui/baymax/                   Vinyl shading, BaymaxFace, BaymaxStage (body, case, animations)
   ui/chest/                    ChestPanel, PainScale, ScanView, EmergencyPanel
-  ui/home/                     HomeScreen, top bar, captions, chips, input, sandbox
+  ui/home/                     HomeScreen, HomeController (runs the protocol), HomeViewModel
   ui/Previews.kt               Android Studio previews of each state
 ```
 
-`design/phase2-screens.png` shows the Compose UI rendered in each state.
+`design/phase2-screens.png` and `design/phase3-flow.png` show the Compose UI rendered in each state.
 
 Nunito font: SIL Open Font License (`design/NUNITO_OFL.txt`).

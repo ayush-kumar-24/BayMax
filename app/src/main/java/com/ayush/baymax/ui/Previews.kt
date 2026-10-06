@@ -3,12 +3,12 @@ package com.ayush.baymax.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 import com.ayush.baymax.agent.AgentState
-import com.ayush.baymax.ui.home.ChestContent
-import com.ayush.baymax.ui.home.HealthReadings
+import com.ayush.baymax.agent.ChestContent
+import com.ayush.baymax.agent.HealthReadings
+import com.ayush.baymax.agent.QuickChip
 import com.ayush.baymax.ui.home.HomeActions
 import com.ayush.baymax.ui.home.HomeScreen
 import com.ayush.baymax.ui.home.HomeUiState
-import com.ayush.baymax.ui.home.QuickChip
 import com.ayush.baymax.ui.theme.BaymaxTheme
 import com.ayush.baymax.ui.theme.Nunito
 

@@ -29,7 +29,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.ayush.baymax.ui.home.ChestContent
+import com.ayush.baymax.agent.ChestContent
 import com.ayush.baymax.ui.theme.BaymaxTheme
 
 private val PanelShape = RoundedCornerShape(28.dp)

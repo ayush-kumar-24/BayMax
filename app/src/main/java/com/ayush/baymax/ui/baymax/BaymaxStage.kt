@@ -61,7 +61,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.ayush.baymax.ui.theme.BaymaxTheme
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.random.Random
@@ -142,8 +145,14 @@ fun BaymaxStage(
     val look by animateFloatAsState(if (lookingAtInput) 5f else 0f, tween(500), label = "look")
     val blink = remember { Animatable(1f) }
     suspend fun doBlink() {
-        blink.animateTo(0.06f, tween(85))
-        blink.animateTo(1f, tween(85))
+        try {
+            blink.animateTo(0.06f, tween(85))
+            blink.animateTo(1f, tween(85))
+        } catch (e: CancellationException) {
+            // Another blink took over the Animatable. Only rethrow if this coroutine itself is
+            // being cancelled, otherwise the random-blink loop would silently die.
+            if (!currentCoroutineContext().isActive) throw e
+        }
     }
     LaunchedEffect(blinkTick) { if (awake && blinkTick > 0) doBlink() }
     LaunchedEffect(awake) {

@@ -10,6 +10,7 @@ enum class AgentState(val label: String) {
     Interview("Care"),
     Care("Care"),
     Satisfaction("Care"),
+    MoodCheck("Care"),
     Emergency("Emergency"),
     ;
 

@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.ayush.baymax.agent.QuickChip
 import com.ayush.baymax.ui.baymax.BaymaxStage
 import com.ayush.baymax.ui.chest.ChestPanel
 import com.ayush.baymax.ui.theme.BaymaxTheme
