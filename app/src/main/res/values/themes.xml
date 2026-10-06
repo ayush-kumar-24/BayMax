@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.Baymax" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bm_bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <color name="bm_bg">#F3F1ED</color>
+</resources>

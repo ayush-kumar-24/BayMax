@@ -74,8 +74,8 @@ Goal: the app should **feel like being in the movie**. Baymax is not a chat app 
 
 ## 6. Phases
 
-1. **Phase 1 (this)** — UI spec + interactive HTML demo (`demo/index.html`). Approve the feel.
-2. **Phase 2** — Compose design system: theme tokens, Baymax face/body composables + animations, Home screen, chest panel.
+1. **Phase 1 (done)** — UI spec + interactive HTML demo (`demo/index.html`). Approve the feel.
+2. **Phase 2 (done)** — Compose design system: theme tokens, Baymax face/body composables + animations, Home screen, chest panel.
 3. **Phase 3** — Care protocol state machine UI wiring, pain scale, scan, emergency, satisfaction loop.
 4. **Phase 4** — Health log, settings, sheets, reminders, contact friend, low-battery, dark theme polish.
 5. **Phase 5** — Hook up LLM, speech, Health Connect, Room (backend layers).

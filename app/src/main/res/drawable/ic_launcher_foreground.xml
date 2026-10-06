@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Baymax face: white head, two dots joined by a line -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M54,34 C74,34 84,44 84,55 C84,66 74,74 54,74 C34,74 24,66 24,55 C24,44 34,34 54,34 Z" />
+    <path android:strokeColor="#111317" android:strokeWidth="1.6" android:strokeLineCap="round"
+        android:pathData="M42,55 L66,55" />
+    <path android:fillColor="#111317"
+        android:pathData="M42,51.5 a3.5,3.5 0 1,0 0.01,0 Z M66,51.5 a3.5,3.5 0 1,0 0.01,0 Z" />
+</vector>
